@@ -3,5 +3,5 @@
 
 ### Get Script 
 ```
-https://raw.githubusercontent.com/haxer19/Zenith/main/SynHaX.lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/haxer19/Zenith/main/SynHaX.lua"))()
 ```
