@@ -66,7 +66,7 @@ Tabs.Home:Toggle({
     Title = "Auto Void Kill",
     Default = false,
     Callback = function(state)
-        config.tools.vk == state
+        config.tools.vk = state
         if config.tools.vk then
             vk:Toggle()
         else
@@ -143,7 +143,7 @@ Tabs.Settings:Toggle({
     Title = "Anti AFK",
     Default = false,
     Callback = function(state)
-        config.tools.afk == state
+        config.tools.afk = state
         if config.tools.afk then
             afk:Start()
             WindUI:Notify({
