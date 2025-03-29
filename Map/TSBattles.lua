@@ -9,6 +9,7 @@ local config = {
         vk = false,
     }
 }
+
 local Window = WindUI:CreateWindow({
     Title = "The Strongest Battlegrounds",
     Icon = "rbxassetid://128991800373681",
@@ -26,10 +27,10 @@ Window:EditOpenButton({
     Icon = "rbxassetid://128991800373681",
     CornerRadius = UDim.new(0,10),
     StrokeThickness = 2,
-    Color = ColorSequence.new( 
-        Color3.fromHex("FF0F7B"), 
-        Color3.fromHex("F89B29")
-    ),
+    Color = ColorSequence.new({ 
+        ColorSequenceKeypoint.new(0, Color3.fromHex("FF0F7B")),
+        ColorSequenceKeypoint.new(1, Color3.fromHex("F89B29"))
+    }),
     Draggable = false,
 })
 
@@ -51,7 +52,6 @@ local Tabs = {
 Window:SelectTab(1)
 
 Tabs.Info:Section({ Title = "Info" })
-
 Tabs.Info:Paragraph({
     Title = "Latest update (V1.0.0)",
     Desc = "My journey in scripting for The Strongest Battlegrounds begins here.",
@@ -68,23 +68,22 @@ Tabs.Home:Toggle({
     Callback = function(state)
         config.tools.vk = state
         if config.tools.vk then
-            vk:Toggle()
+            vk:enable()
         else
-            vk:Toggle()
+            vk:disable()
         end
     end
 })
 
 Tabs.Players:Section({ Title = "Teleport" })
-local plr = game.Players.LocalPlayer
+local plr = game:GetService("Players").LocalPlayer
 local selectedPlr = ""
 
-Tabs.Players:Section({ Title = "Teleport" })
 Tabs.Players:Dropdown({
     Title = "Player List",
     Values = function()
         local t = {}
-        for _, p in pairs(game.Players:GetPlayers()) do
+        for _, p in pairs(game:GetService("Players"):GetPlayers()) do
             if p ~= plr then
                 table.insert(t, p.Name)
             end
@@ -100,15 +99,18 @@ Tabs.Players:Dropdown({
 Tabs.Settings:Button({
     Title = "Refresh List",
     Callback = function()
-        Tabs.Players:Dropdown("Player List"):Refresh()
+        local dropdown = Tabs.Players:Find("Player List")
+        if dropdown then
+            dropdown:Refresh()
+        end
     end
 })
 
 Tabs.Settings:Button({
     Title = "Teleport To Player",
     Callback = function()
-        if selectedPlr ~= "" then
-            local target = game.Players:FindFirstChild(selectedPlr)
+        if selectedPlr ~= "" and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local target = game:GetService("Players"):FindFirstChild(selectedPlr)
             if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
                 plr.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
             end
@@ -116,18 +118,18 @@ Tabs.Settings:Button({
     end
 })
 
-Tabs.Players:Section({ Title = "Esp" })
+Tabs.Players:Section({ Title = "ESP" })
 Tabs.Players:Dropdown({
     Title = "Aura Color",
     Values = { "White", "Green", "Blue", "Red", "Yellow", "Orange", "Purple" },
-    Value = "",
+    Value = "White",
     Callback = function(option)
         esp:SetColor(option)
     end
 })
 
 Tabs.Players:Toggle({
-    Title = "Enable Esp",
+    Title = "Enable ESP",
     Default = false,
     Callback = function(state)
         if state then
@@ -181,7 +183,9 @@ Tabs.Settings:Button({
 local HttpService = game:GetService("HttpService")
 
 local folderPath = "WindUI"
-makefolder(folderPath)
+if not isfolder(folderPath) then
+    makefolder(folderPath)
+end
 
 local function SaveFile(fileName, data)
     local filePath = folderPath .. "/" .. fileName .. ".json"
@@ -195,14 +199,17 @@ local function LoadFile(fileName)
         local jsonData = readfile(filePath)
         return HttpService:JSONDecode(jsonData)
     end
+    return nil
 end
 
 local function ListFiles()
     local files = {}
-    for _, file in ipairs(listfiles(folderPath)) do
-        local fileName = file:match("([^/]+)%.json$")
-        if fileName then
-            table.insert(files, fileName)
+    if isfolder(folderPath) then
+        for _, file in ipairs(listfiles(folderPath)) do
+            local fileName = file:match("([^/]+)%.json$")
+            if fileName then
+                table.insert(files, fileName)
+            end
         end
     end
     return files
@@ -219,7 +226,7 @@ local themeDropdown = Tabs.Settings:Dropdown({
     Title = "Select Theme",
     Multi = false,
     AllowNone = false,
-    Value = nil,
+    Value = "Dark",
     Values = themeValues,
     Callback = function(theme)
         WindUI:SetTheme(theme)
@@ -229,10 +236,10 @@ themeDropdown:Select(WindUI:GetCurrentTheme())
 
 local ToggleTransparency = Tabs.Settings:Toggle({
     Title = "Toggle Window Transparency",
+    Default = true,
     Callback = function(e)
         Window:ToggleTransparency(e)
-    end,
-    Value = WindUI:GetTransparency()
+    end
 })
 
 Tabs.Settings:Section({ Title = "Save" })
@@ -250,7 +257,21 @@ Tabs.Settings:Button({
     Title = "Save File",
     Callback = function()
         if fileNameInput ~= "" then
-            SaveFile(fileNameInput, { Transparent = WindUI:GetTransparency(), Theme = WindUI:GetCurrentTheme() })
+            SaveFile(fileNameInput, { 
+                Transparent = WindUI:GetTransparency(), 
+                Theme = WindUI:GetCurrentTheme() 
+            })
+            WindUI:Notify({
+                Title = "Success",
+                Content = "File saved successfully",
+                Duration = 5,
+            })
+        else
+            WindUI:Notify({
+                Title = "Error",
+                Content = "Please enter a file name",
+                Duration = 5,
+            })
         end
     end
 })
@@ -266,7 +287,7 @@ filesDropdown = Tabs.Settings:Dropdown({
     AllowNone = true,
     Values = files,
     Callback = function(selectedFile)
-        fileNameInput = selectedFile
+        fileNameInput = selectedFile or ""
     end
 })
 
@@ -276,17 +297,32 @@ Tabs.Settings:Button({
         if fileNameInput ~= "" then
             local data = LoadFile(fileNameInput)
             if data then
-                WindUI:Notify({
-                    Title = "File Loaded",
-                    Content = "Loaded data: " .. HttpService:JSONEncode(data),
-                    Duration = 5,
-                })
-                if data.Transparent then 
+                if data.Transparent ~= nil then 
                     Window:ToggleTransparency(data.Transparent)
                     ToggleTransparency:SetValue(data.Transparent)
                 end
-                if data.Theme then WindUI:SetTheme(data.Theme) end
+                if data.Theme then 
+                    WindUI:SetTheme(data.Theme)
+                    themeDropdown:Select(data.Theme)
+                end
+                WindUI:Notify({
+                    Title = "File Loaded",
+                    Content = "Loaded data successfully",
+                    Duration = 5,
+                })
+            else
+                WindUI:Notify({
+                    Title = "Error",
+                    Content = "Failed to load file",
+                    Duration = 5,
+                })
             end
+        else
+            WindUI:Notify({
+                Title = "Error",
+                Content = "Please select a file",
+                Duration = 5,
+            })
         end
     end
 })
@@ -295,7 +331,21 @@ Tabs.Settings:Button({
     Title = "Overwrite File",
     Callback = function()
         if fileNameInput ~= "" then
-            SaveFile(fileNameInput, { Transparent = WindUI:GetTransparency(), Theme = WindUI:GetCurrentTheme() })
+            SaveFile(fileNameInput, { 
+                Transparent = WindUI:GetTransparency(), 
+                Theme = WindUI:GetCurrentTheme() 
+            })
+            WindUI:Notify({
+                Title = "Success",
+                Content = "File overwritten successfully",
+                Duration = 5,
+            })
+        else
+            WindUI:Notify({
+                Title = "Error",
+                Content = "Please select a file to overwrite",
+                Duration = 5,
+            })
         end
     end
 })
@@ -315,7 +365,7 @@ local ThemeOutline = themes[currentThemeName].Outline
 local ThemeText = themes[currentThemeName].Text
 local ThemePlaceholderText = themes[currentThemeName].PlaceholderText
 
-function updateTheme()
+local function updateTheme()
     WindUI:AddTheme({
         Name = currentThemeName,
         Accent = ThemeAccent,
@@ -324,9 +374,10 @@ function updateTheme()
         PlaceholderText = ThemePlaceholderText
     })
     WindUI:SetTheme(currentThemeName)
+    themeDropdown:Select(currentThemeName)
 end
 
-local CreateInput = Tabs.Settings:Input({
+Tabs.Settings:Input({
     Title = "Theme Name",
     Value = currentThemeName,
     Callback = function(name)
@@ -336,33 +387,37 @@ local CreateInput = Tabs.Settings:Input({
 
 Tabs.Settings:Colorpicker({
     Title = "Background Color",
-    Default = Color3.fromHex(ThemeAccent),
+    Default = Color3.fromRGB(themes[currentThemeName].Accent),
     Callback = function(color)
-        ThemeAccent = color:ToHex()
+        ThemeAccent = color
+        updateTheme()
     end
 })
 
 Tabs.Settings:Colorpicker({
     Title = "Outline Color",
-    Default = Color3.fromHex(ThemeOutline),
+    Default = Color3.fromRGB(themes[currentThemeName].Outline),
     Callback = function(color)
-        ThemeOutline = color:ToHex()
+        ThemeOutline = color
+        updateTheme()
     end
 })
 
 Tabs.Settings:Colorpicker({
     Title = "Text Color",
-    Default = Color3.fromHex(ThemeText),
+    Default = Color3.fromRGB(themes[currentThemeName].Text),
     Callback = function(color)
-        ThemeText = color:ToHex()
+        ThemeText = color
+        updateTheme()
     end
 })
 
 Tabs.Settings:Colorpicker({
     Title = "Placeholder Text Color",
-    Default = Color3.fromHex(ThemePlaceholderText),
+    Default = Color3.fromRGB(themes[currentThemeName].PlaceholderText),
     Callback = function(color)
-        ThemePlaceholderText = color:ToHex()
+        ThemePlaceholderText = color
+        updateTheme()
     end
 })
 
@@ -370,5 +425,10 @@ Tabs.Settings:Button({
     Title = "Update Theme",
     Callback = function()
         updateTheme()
+        WindUI:Notify({
+            Title = "Success",
+            Content = "Theme updated successfully",
+            Duration = 5,
+        })
     end
 })
