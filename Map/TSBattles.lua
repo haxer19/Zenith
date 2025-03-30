@@ -68,52 +68,56 @@ Tabs.Home:Toggle({
     Callback = function(state)
         config.tools.vk = state
         if config.tools.vk then
-            vk:enable()
+            vk.toggle()
         else
-            vk:disable()
+            vk.toggle()
         end
     end
 })
 
+-- Teleport 
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerList = {}
+
+local function UpdatePlayerList()
+    PlayerList = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            table.insert(PlayerList, player.Name)
+        end
+    end
+end
+
+UpdatePlayerList()
+
 Tabs.Players:Section({ Title = "Teleport" })
-local plr = game:GetService("Players").LocalPlayer
-local selectedPlr = ""
+
+local SelectedPlayer = ""
 
 Tabs.Players:Dropdown({
     Title = "Player List",
-    Values = function()
-        local t = {}
-        for _, p in pairs(game:GetService("Players"):GetPlayers()) do
-            if p ~= plr then
-                table.insert(t, p.Name)
-            end
-        end
-        return t
-    end,
+    Values = PlayerList,
     Value = "",
-    Callback = function(opt)
-        selectedPlr = opt
+    Callback = function(option)
+        SelectedPlayer = option
     end
 })
 
 Tabs.Settings:Button({
     Title = "Refresh List",
     Callback = function()
-        local dropdown = Tabs.Players:Find("Player List")
-        if dropdown then
-            dropdown:Refresh()
-        end
+        UpdatePlayerList()
     end
 })
 
 Tabs.Settings:Button({
     Title = "Teleport To Player",
     Callback = function()
-        if selectedPlr ~= "" and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local target = game:GetService("Players"):FindFirstChild(selectedPlr)
-            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                plr.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
-            end
+        local TargetPlayer = Players:FindFirstChild(SelectedPlayer)
+        if TargetPlayer and TargetPlayer.Character and LocalPlayer.Character then
+            LocalPlayer.Character:SetPrimaryPartCFrame(TargetPlayer.Character.PrimaryPart.CFrame)
         end
     end
 })

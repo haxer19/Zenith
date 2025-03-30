@@ -1,87 +1,65 @@
-local voidKill = {}
+getgenv().VoidKill = getgenv().VoidKill or {}
+local vk = getgenv().VoidKill
 
-local isEnabled = false
-local coroutineLoop
+if vk.loop then
+    coroutine.close(vk.loop)
+    vk.loop = nil
+end
 
-voidKill.enable = function()
-    if not isEnabled then
-        workspace.FallenPartsDestroyHeight = math.huge
-        
-        if getgenv().activeLoop then
-            coroutine.close(getgenv().activeLoop)
-            getgenv().activeLoop = nil
-        end
-        
-        local animationList = {
-            ["rbxassetid://12273188754"] = 1.311,
-            ["rbxassetid://12296113986"] = 1.2
-        }
-        
-        local function findAnimation(table, animationId)
-            for id, duration in pairs(table) do
-                if id == animationId then
-                    return id
-                end
-            end
-            return false
-        end
-        
-        local player = game.Players.LocalPlayer
-        
-        getgenv().activeLoop = coroutine.create(function()
-            while task.wait() do
-                if not isEnabled then 
-                    coroutine.yield() 
-                end
-                
-                local character = player.Character
-                if not character then
-                    player.CharacterAdded:Wait()
-                    character = player.Character
-                end
-                
-                local animator = character.Humanoid.Animator
-                
-                for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-                    if findAnimation(animationList, track.Animation.AnimationId) then
-                        task.wait(animationList[track.Animation.AnimationId])
-                        local isTechActive = true
-                        local lastPosition = character.HumanoidRootPart.CFrame
-                        
-                        track.Stopped:Connect(function()
-                            isTechActive = false
+vk.enabled = false
+
+local function start()
+    if vk.enabled then return end
+    vk.enabled = true
+    workspace.FallenPartsDestroyHeight = 0/0
+    local plr = game.Players.LocalPlayer
+    local animations = {
+        ["rbxassetid://12273188754"] = 1.311,
+        ["rbxassetid://12296113986"] = 1.2,
+    }
+    local function ifind(t, a)
+        return t[a] ~= nil
+    end
+    vk.loop = coroutine.create(function()
+        local dothetech, lastcf
+        while vk.enabled and task.wait() do
+            local character = plr.Character
+            local animate = character and character:FindFirstChild("Humanoid") and character.Humanoid:FindFirstChild("Animator")
+            if animate then
+                for _, v in pairs(animate:GetPlayingAnimationTracks()) do
+                    if ifind(animations, v.Animation.AnimationId) then
+                        task.wait(animations[v.Animation.AnimationId])
+                        dothetech = true
+                        lastcf = character.HumanoidRootPart.CFrame
+                        v.Stopped:Connect(function()
+                            dothetech = false
                         end)
-                        
-                        repeat 
+                        repeat
                             task.wait()
                             workspace.Camera.CameraType = Enum.CameraType.Scriptable
                             character.HumanoidRootPart.CFrame = CFrame.new(-1200, -460, 67)
                             character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.zero
                             character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.zero
-                        until not isTechActive
-                        
+                        until not dothetech
                         task.wait(0.1)
-                        character.HumanoidRootPart.CFrame = lastPosition
+                        character.HumanoidRootPart.CFrame = lastcf
                         workspace.Camera.CameraType = Enum.CameraType.Custom
                         workspace.Camera.CameraSubject = character.Humanoid
                         task.wait(1)
                     end
                 end
             end
-        end)
-        coroutine.resume(getgenv().activeLoop)
-        isEnabled = true
-    end
-end
-
-voidKill.disable = function()
-    if isEnabled then
-        isEnabled = false
-        if getgenv().activeLoop then
-            coroutine.close(getgenv().activeLoop)
-            getgenv().activeLoop = nil
         end
-    end
+    end)
+    coroutine.resume(vk.loop)
 end
 
-return voidKill
+local function stop()
+    vk.enabled = false
+end
+
+vk.toggle = function()
+    if vk.enabled then stop() else start() end
+end
+
+return vk
